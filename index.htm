@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>字詞小特工</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Tone.js for Sound Effects -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <!-- Font Awesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts for Chinese -->
+    <link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Noto+Sans+TC:wght@400;700;900&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            touch-action: none; /* Prevent pinch zoom and scrolling on game area */
+            background-color: #e0f2fe;
+            overflow: hidden;
+        }
+        
+        .title-font {
+            font-family: 'Ma Shan Zheng', cursive;
+        }
+
+        /* Mode 2 Match Card Styles */
+        .match-card {
+            perspective: 1000px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        
+        .match-card:active {
+            transform: scale(0.95);
+        }
+
+        .match-card-inner {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            text-align: center;
+            transition: transform 0.6s cubic-bezier(0.4, 0.2, 0.2, 1);
+            transform-style: preserve-3d;
+        }
+
+        .match-card.matched .match-card-inner {
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.5s ease, visibility 0.5s;
+        }
+
+        .match-card.selected .match-card-inner {
+            transform: scale(1.05) translateY(-5px);
+            box-shadow: 0 10px 25px -5px rgba(59, 130, 246, 0.5);
+        }
+
+        .match-card-front, .match-card-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            -webkit-backface-visibility: hidden;
+            backface-visibility: hidden;
+            border-radius: 0.75rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: white;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            border: 4px solid transparent;
+        }
+
+        .match-card.selected .match-card-front {
+            border-color: #3b82f6; /* Blue-500 */
+        }
+        
+        .match-card-front img {
+            max-width: 90%;
+            max-height: 90%;
+            object-fit: contain;
+            border-radius: 0.5rem;
+        }
+
+        /* Confetti Animation for Win Screen */
+        @keyframes fall {
+            0% { transform: translateY(-10vh) rotate(0deg); opacity: 1; }
+            100% { transform: translateY(110vh) rotate(360deg); opacity: 0; }
+        }
+        
+        .confetti {
+            position: absolute;
+            width: 10px;
+            height: 20px;
+            background-color: #fcd34d;
+            animation: fall 3s linear infinite;
+        }
+
+        /* Glassmorphism for panels */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
+        }
+
+        /* Custom Scrollbar for mode 2 if needed on small devices */
+        #mode2-scroll-area {
+            overflow-y: auto;
+            max-height: calc(100vh - 120px);
+            padding-bottom: 20px;
+        }
+    </style>
+</head>
+<body class="w-full h-screen relative select-none">
+
+    <!-- Audio Context Unlock Screen -->
+    <div id="start-screen" class="absolute inset-0 z-50 flex flex-col items-center justify-center bg-sky-400 bg-opacity-95 text-white transition-opacity duration-500">
+        <h1 class="text-6xl md:text-8xl font-bold title-font mb-8 drop-shadow-lg text-center tracking-widest">字詞小特工</h1>
+        <p class="text-xl md:text-2xl mb-12 font-medium">準備好挑戰你的認字能力嗎？</p>
+        <button id="btn-start" class="px-10 py-5 bg-yellow-400 hover:bg-yellow-300 text-yellow-900 text-3xl font-black rounded-full shadow-[0_8px_0_#b45309] active:shadow-[0_0px_0_#b45309] active:translate-y-2 transition-all transform hover:scale-105">
+            <i class="fas fa-play mr-3"></i> 開始遊戲
+        </button>
+    </div>
+
+    <!-- Main Menu: Select List -->
+    <div id="menu-screen" class="hidden absolute inset-0 z-40 flex flex-col items-center justify-center bg-gradient-to-b from-sky-200 to-blue-300 p-4">
+        <div class="glass-panel p-8 md:p-12 rounded-3xl w-full max-w-3xl flex flex-col items-center">
+            <h2 class="text-4xl md:text-5xl font-bold title-font text-blue-800 mb-10 text-center">請選擇詞語庫</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 w-full">
+                <button onclick="app.selectList('222-1')" class="list-btn p-6 bg-white hover:bg-blue-50 border-4 border-blue-400 rounded-2xl shadow-lg flex flex-col items-center transition transform hover:-translate-y-2">
+                    <div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center text-blue-500 text-3xl mb-4">
+                        <i class="fas fa-book"></i>
+                    </div>
+                    <h3 class="text-2xl font-bold text-gray-800 mb-2">詞語庫 1</h3>
+                    <p class="text-sm text-gray-500 text-center">洗澡, 噪音, 積分...</p>
+                </button>
+
+                <button onclick="app.selectList('222-2')" class="list-btn p-6 bg-white hover:bg-emerald-50 border-4 border-emerald-400 rounded-2xl shadow-lg flex flex-col items-center transition transform hover:-translate-y-2">
+                    <div class="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-500 text-3xl mb-4">
+                        <i class="fas fa-leaf"></i>
+                    </div>
+                    <h3 class="text-2xl font-bold text-gray-800 mb-2">詞語庫 2</h3>
+                    <p class="text-sm text-gray-500 text-center">手帕, 柏樹, 碟子...</p>
+                </button>
+
+                <button onclick="app.selectList('222-3')" class="list-btn p-6 bg-white hover:bg-purple-50 border-4 border-purple-400 rounded-2xl shadow-lg flex flex-col items-center transition transform hover:-translate-y-2">
+                    <div class="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center text-purple-500 text-3xl mb-4">
+                        <i class="fas fa-star"></i>
+                    </div>
+                    <h3 class="text-2xl font-bold text-gray-800 mb-2">詞語庫 3</h3>
+                    <p class="text-sm text-gray-500 text-center">羣體, 長裙, 撤退...</p>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mode Selection Screen -->
+    <div id="mode-screen" class="hidden absolute inset-0 z-30 flex flex-col items-center justify-center bg-gradient-to-b from-sky-200 to-blue-300 p-4">
+        <button onclick="app.showScreen('menu-screen')" class="absolute top-6 left-6 text-blue-700 hover:text-blue-900 text-2xl font-bold bg-white/50 w-12 h-12 rounded-full shadow backdrop-blur flex justify-center items-center">
+            <i class="fas fa-arrow-left"></i>
+        </button>
+        <div class="glass-panel p-8 md:p-12 rounded-3xl w-full max-w-4xl flex flex-col items-center">
+            <h2 class="text-4xl md:text-5xl font-bold title-font text-blue-800 mb-10 text-center">選擇遊戲模式</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 w-full">
+                <!-- Mode 1 -->
+                <button onclick="app.startMode1()" class="relative overflow-hidden group p-8 bg-gradient-to-br from-cyan-400 to-blue-500 rounded-3xl shadow-xl text-white flex flex-col items-center text-center transition transform hover:scale-105 hover:shadow-2xl">
+                    <div class="absolute top-0 left-0 w-full h-full bg-white opacity-0 group-hover:opacity-20 transition-opacity"></div>
+                    <i class="fas fa-cloud-sun text-6xl mb-6 drop-shadow-md"></i>
+                    <h3 class="text-4xl font-black mb-4 tracking-wide title-font">義形模式</h3>
+                    <p class="text-lg font-medium bg-black/20 py-2 px-4 rounded-full">看圖識字・捕捉飛翔的雲朵</p>
+                </button>
+
+                <!-- Mode 2 -->
+                <button onclick="app.startMode2()" class="relative overflow-hidden group p-8 bg-gradient-to-br from-orange-400 to-red-500 rounded-3xl shadow-xl text-white flex flex-col items-center text-center transition transform hover:scale-105 hover:shadow-2xl">
+                    <div class="absolute top-0 left-0 w-full h-full bg-white opacity-0 group-hover:opacity-20 transition-opacity"></div>
+                    <i class="fas fa-layer-group text-6xl mb-6 drop-shadow-md"></i>
+                    <h3 class="text-4xl font-black mb-4 tracking-wide title-font">形義模式</h3>
+                    <p class="text-lg font-medium bg-black/20 py-2 px-4 rounded-full">字詞配對・找出圖文連繫</p>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mode 1: Canvas Area -->
+    <div id="mode1-container" class="hidden absolute inset-0 z-20 bg-sky-200">
+        <!-- Top Bar -->
+        <div class="absolute top-0 w-full p-4 flex justify-between items-center z-30 pointer-events-none">
+            <button onclick="app.showScreen('mode-screen'); app.stopMode1();" class="pointer-events-auto text-blue-700 hover:text-blue-900 text-2xl bg-white/70 w-12 h-12 rounded-full shadow backdrop-blur flex justify-center items-center">
+                <i class="fas fa-arrow-left"></i>
+            </button>
+            <div class="bg-white/80 backdrop-blur px-6 py-2 rounded-full shadow font-bold text-blue-800 text-xl border-2 border-white pointer-events-auto">
+                分數: <span id="m1-score">0</span> / 8
+            </div>
+        </div>
+        <!-- Canvas -->
+        <canvas id="gameCanvas" class="w-full h-full block touch-none"></canvas>
+    </div>
+
+    <!-- Mode 2: Matching Area -->
+    <div id="mode2-container" class="hidden absolute inset-0 z-20 bg-amber-50 flex flex-col">
+        <!-- Top Bar -->
+        <div class="w-full p-4 flex justify-between items-center bg-white/50 backdrop-blur shadow-sm z-30 shrink-0">
+            <button onclick="app.showScreen('mode-screen')" class="text-amber-700 hover:text-amber-900 text-2xl bg-white w-12 h-12 rounded-full shadow flex justify-center items-center">
+                <i class="fas fa-arrow-left"></i>
+            </button>
+            <h2 class="text-2xl font-bold text-amber-800 title-font">形義配對</h2>
+            <div class="bg-amber-100 px-6 py-2 rounded-full shadow-inner font-bold text-amber-800 text-xl border border-amber-200">
+                進度: <span id="m2-score">0</span> / 8
+            </div>
+        </div>
+        
+        <!-- Game Area -->
+        <div id="mode2-scroll-area" class="flex-grow w-full flex flex-col items-center justify-start sm:justify-center p-4">
+            
+            <div class="w-full max-w-5xl flex flex-col gap-8">
+                <!-- Picture Deck (2x4 Grid) -->
+                <div class="w-full">
+                    <div class="bg-amber-200/50 rounded-t-xl px-4 py-2 border-b-2 border-amber-300">
+                        <h3 class="text-lg font-bold text-amber-800"><i class="fas fa-image mr-2"></i> 圖片區 (選一張)</h3>
+                    </div>
+                    <div id="m2-pic-grid" class="grid grid-cols-4 grid-rows-2 gap-2 sm:gap-4 p-4 bg-white rounded-b-xl shadow-md border-x border-b border-amber-100 min-h-[200px]">
+                        <!-- Cards injected via JS -->
+                    </div>
+                </div>
+
+                <!-- Word Deck (2x4 Grid) -->
+                <div class="w-full">
+                    <div class="bg-blue-200/50 rounded-t-xl px-4 py-2 border-b-2 border-blue-300">
+                        <h3 class="text-lg font-bold text-blue-800"><i class="fas fa-font mr-2"></i> 文字區 (選一張)</h3>
+                    </div>
+                    <div id="m2-word-grid" class="grid grid-cols-4 grid-rows-2 gap-2 sm:gap-4 p-4 bg-white rounded-b-xl shadow-md border-x border-b border-blue-100 min-h-[200px]">
+                        <!-- Cards injected via JS -->
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Win Modal -->
+    <div id="win-screen" class="hidden absolute inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60 backdrop-blur-sm">
+        <div id="confetti-container" class="absolute inset-0 pointer-events-none overflow-hidden"></div>
+        <div class="bg-white rounded-3xl p-10 text-center shadow-2xl transform scale-100 transition-transform duration-300 border-8 border-yellow-400 max-w-lg w-11/12">
+            <i class="fas fa-trophy text-8xl text-yellow-400 mb-6 drop-shadow-md"></i>
+            <h2 class="text-5xl font-black title-font text-yellow-600 mb-4">太棒了！</h2>
+            <p class="text-2xl text-gray-700 font-bold mb-8">你成功完成了所有挑戰！</p>
+            <button onclick="app.showScreen('menu-screen')" class="w-full py-4 bg-blue-500 hover:bg-blue-600 text-white text-2xl font-bold rounded-xl shadow-[0_6px_0_#1e3a8a] active:shadow-[0_0px_0_#1e3a8a] active:translate-y-2 transition-all">
+                再玩一次
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // --- Data & State ---
+        const wordLists = {
+            '222-1': ['洗澡', '噪音', '積分', '奇蹟', '蠟燭', '臘腸', '衫鈕', '扭打'],
+            '222-2': ['手帕', '柏樹', '碟子', '間諜', '刀鋒', '山峯', '洋蔥', '聰明'],
+            '222-3': ['羣體', '長裙', '撤退', '清澈', '鉛筆', '沿途', '提議', '難題']
+        };
+
+        const app = {
+            currentListId: null,
+            currentWords: [],
+            synth: null,
+            audioEnabled: false,
+            
+            // Image cache
+            imageCache: {},
+
+            init() {
+                document.getElementById('btn-start').addEventListener('click', () => {
+                    this.initAudio();
+                    document.getElementById('start-screen').style.opacity = '0';
+                    setTimeout(() => {
+                        document.getElementById('start-screen').classList.add('hidden');
+                        this.showScreen('menu-screen');
+                    }, 500);
+                });
+
+                // Resize handler for canvas
+                window.addEventListener('resize', () => {
+                    if (!document.getElementById('mode1-container').classList.contains('hidden')) {
+                        mode1.resize();
+                    }
+                });
+            },
+
+            initAudio() {
+                if (this.audioEnabled) return;
+                // Simple synth for sound effects
+                this.synth = new Tone.PolySynth(Tone.Synth).toDestination();
+                this.synth.volume.value = -5; // slightly lower volume
+                Tone.start();
+                this.audioEnabled = true;
+            },
+
+            playSound(type) {
+                if (!this.audioEnabled || !this.synth) return;
+                const now = Tone.now();
+                switch (type) {
+                    case 'click':
+                        this.synth.triggerAttackRelease("C5", "32n", now);
+                        break;
+                    case 'correct':
+                        this.synth.triggerAttackRelease(["C5", "E5", "G5"], "8n", now);
+                        break;
+                    case 'wrong':
+                        this.synth.triggerAttackRelease("C3", "8n", now);
+                        break;
+                    case 'win':
+                        this.synth.triggerAttackRelease(["C5", "E5", "G5"], "8n", now);
+                        this.synth.triggerAttackRelease(["E5", "G5", "C6"], "4n", now + 0.2);
+                        break;
+                }
+            },
+
+            showScreen(screenId) {
+                this.playSound('click');
+                ['menu-screen', 'mode-screen', 'mode1-container', 'mode2-container', 'win-screen'].forEach(id => {
+                    document.getElementById(id).classList.add('hidden');
+                });
+                document.getElementById(screenId).classList.remove('hidden');
+            },
+
+            selectList(listId) {
+                this.currentListId = listId;
+                this.currentWords = [...wordLists[listId]];
+                this.preloadImages(listId, this.currentWords);
+                this.showScreen('mode-screen');
+            },
+
+            // Preload images or create fallbacks
+            async preloadImages(folder, words) {
+                for (let word of words) {
+                    if (!this.imageCache[`${folder}_${word}`]) {
+                        this.imageCache[`${folder}_${word}`] = await this.loadImageFallback(folder, word);
+                    }
+                }
+            },
+
+            loadImageFallback(folder, word) {
+                return new Promise((resolve) => {
+                    const img = new Image();
+                    img.onload = () => resolve(img);
+                    img.onerror = () => {
+                        // If png fails, try jpg
+                        const img2 = new Image();
+                        img2.onload = () => resolve(img2);
+                        img2.onerror = () => resolve(null); // Return null if all fails (handled in UI)
+                        img2.src = `pics/${folder}/${word}.jpg`;
+                    };
+                    img.src = `pics/${folder}/${word}.png`;
+                });
+            },
+
+            startMode1() {
+                this.showScreen('mode1-container');
+                mode1.start();
+            },
+
+            stopMode1() {
+                mode1.stop();
+            },
+
+            startMode2() {
+                this.showScreen('mode2-container');
+                mode2.start();
+            },
+
+            showWinScreen() {
+                this.playSound('win');
+                this.showScreen('win-screen');
+                this.createConfetti();
+            },
+
+            createConfetti() {
+                const container = document.getElementById('confetti-container');
+                container.innerHTML = '';
+                const colors = ['#fcd34d', '#3b82f6', '#ef4444', '#10b981', '#a855f7'];
+                for (let i = 0; i < 50; i++) {
+                    const conf = document.createElement('div');
+                    conf.className = 'confetti';
+                    conf.style.left = Math.random() * 100 + 'vw';
+                    conf.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                    conf.style.animationDuration = (Math.random() * 2 + 2) + 's';
+                    conf.style.animationDelay = (Math.random() * 2) + 's';
+                    container.appendChild(conf);
+                }
+            },
+            
+            // Helper to get random distractors from current list
+            getDistractors(correctWord, count=2) {
+                const others = this.currentWords.filter(w => w !== correctWord);
+                // Shuffle others
+                others.sort(() => Math.random() - 0.5);
+                return others.slice(0, count);
+            }
+        };
+
+        // --- Mode 1 Logic (Canvas Flying Clouds) ---
+        const mode1 = {
+            canvas: null,
+            ctx: null,
+            animationId: null,
+            running: false,
+            score: 0,
+            targetQueue: [],
+            currentTarget: null,
+            clouds: [],
+            width: 0,
+            height: 0,
+            
+            start() {
+                this.canvas = document.getElementById('gameCanvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.score = 0;
+                document.getElementById('m1-score').innerText = this.score;
+                this.resize();
+                
+                // Setup queue
+                this.targetQueue = [...app.currentWords].sort(() => Math.random() - 0.5);
+                
+                // Add event listeners (remove old ones first to prevent duplicates)
+                this.canvas.removeEventListener('pointerdown', this.handleInput);
+                this.canvas.addEventListener('pointerdown', this.handleInput.bind(this));
+
+                this.running = true;
+                this.nextRound();
+                this.loop();
+            },
+
+            stop() {
+                this.running = false;
+                if (this.animationId) cancelAnimationFrame(this.animationId);
+            },
+
+            resize() {
+                this.canvas.width = window.innerWidth;
+                this.canvas.height = window.innerHeight;
+                this.width = this.canvas.width;
+                this.height = this.canvas.height;
+            },
+
+            nextRound() {
+                if (this.targetQueue.length === 0) {
+                    this.stop();
+                    app.showWinScreen();
+                    return;
+                }
+                
+                const word = this.targetQueue.pop();
+                this.currentTarget = {
+                    word: word,
+                    img: app.imageCache[`${app.currentListId}_${word}`] || null,
+                    enterAnim: 0
+                };
+
+                // Generate clouds
+                this.clouds = [];
+                const distractors = app.getDistractors(word, 2);
+                const cloudWords = [word, ...distractors].sort(() => Math.random() - 0.5);
+
+                // Create cloud objects spread out
+                cloudWords.forEach((cw, idx) => {
+                    const isLeft = Math.random() > 0.5;
+                    this.clouds.push({
+                        id: idx,
+                        word: cw,
+                        isCorrect: cw === word,
+                        x: isLeft ? -100 : this.width + 100,
+                        y: Math.random() * (this.height * 0.8) + (this.height * 0.1), // avoid top/bottom edges slightly
+                        vx: (isLeft ? 1 : -1) * (Math.random() * 1.5 + 1.5) * (this.width / 800), // scale speed
+                        vy: (Math.random() - 0.5) * 1,
+                        radius: Math.min(this.width, this.height) * 0.12,
+                        phase: Math.random() * Math.PI * 2,
+                        wobbleSpeed: Math.random() * 0.05 + 0.02,
+                        active: true,
+                        popping: 0,
+                        showCross: 0
+                    });
+                });
+            },
+
+            loop() {
+                if (!this.running) return;
+                this.update();
+                this.draw();
+                this.animationId = requestAnimationFrame(this.loop.bind(this));
+            },
+
+            update() {
+                if (this.currentTarget && this.currentTarget.enterAnim < 1) {
+                    this.currentTarget.enterAnim += 0.05;
+                }
+
+                this.clouds.forEach(c => {
+                    if (!c.active && c.popping >= 1) return;
+                    
+                    if (c.active) {
+                        if (c.showCross > 0) c.showCross -= 0.02;
+                        c.x += c.vx;
+                        c.y += c.vy + Math.sin(c.phase) * 0.5;
+                        c.phase += c.wobbleSpeed;
+
+                        // Wrap around screen
+                        if (c.vx > 0 && c.x > this.width + c.radius * 2) c.x = -c.radius * 2;
+                        if (c.vx < 0 && c.x < -c.radius * 2) c.x = this.width + c.radius * 2;
+                        
+                        // Bounce off top/bottom
+                        if (c.y < c.radius) { c.y = c.radius; c.vy *= -1; }
+                        if (c.y > this.height - c.radius) { c.y = this.height - c.radius; c.vy *= -1; }
+                    } else if (c.popping < 1) {
+                        c.popping += 0.1;
+                    }
+                });
+            },
+
+            draw() {
+                this.ctx.clearRect(0, 0, this.width, this.height);
+                
+                // Draw background decorations (static clouds)
+                this.ctx.fillStyle = "rgba(255,255,255,0.4)";
+                this.drawCloudShape(this.ctx, this.width*0.2, this.height*0.2, this.width*0.08);
+                this.drawCloudShape(this.ctx, this.width*0.8, this.height*0.7, this.width*0.1);
+
+                // Draw central picture area
+                if (this.currentTarget) {
+                    const cw = Math.min(this.width * 0.4, 300);
+                    const ch = cw;
+                    const cx = this.width / 2;
+                    const cy = this.height / 2;
+                    
+                    this.ctx.save();
+                    this.ctx.translate(cx, cy);
+                    // Pop in animation
+                    const scale = Math.sin(this.currentTarget.enterAnim * Math.PI / 2);
+                    this.ctx.scale(scale, scale);
+                    
+                    // Card background
+                    this.ctx.shadowColor = 'rgba(0,0,0,0.2)';
+                    this.ctx.shadowBlur = 15;
+                    this.ctx.shadowOffsetY = 10;
+                    this.ctx.fillStyle = 'white';
+                    this.ctx.beginPath();
+                    this.ctx.roundRect(-cw/2, -ch/2, cw, ch, 20);
+                    this.ctx.fill();
+                    
+                    this.ctx.shadowColor = 'transparent';
+                    
+                    // Draw Image or Fallback text
+                    if (this.currentTarget.img) {
+                        // maintain aspect ratio
+                        const img = this.currentTarget.img;
+                        const ratio = Math.min((cw-40)/img.width, (ch-40)/img.height);
+                        const drawW = img.width * ratio;
+                        const drawH = img.height * ratio;
+                        this.ctx.drawImage(img, -drawW/2, -drawH/2, drawW, drawH);
+                    } else {
+                        // Fallback
+                        this.ctx.fillStyle = '#fef3c7'; // amber-50
+                        this.ctx.beginPath();
+                        this.ctx.roundRect(-cw/2+10, -ch/2+10, cw-20, ch-20, 15);
+                        this.ctx.fill();
+                        this.ctx.fillStyle = '#b45309';
+                        this.ctx.font = `bold ${cw * 0.2}px 'Noto Sans TC'`;
+                        this.ctx.textAlign = 'center';
+                        this.ctx.textBaseline = 'middle';
+                        this.ctx.fillText(this.currentTarget.word, 0, 0);
+                        this.ctx.font = `bold ${cw * 0.08}px 'Noto Sans TC'`;
+                        this.ctx.fillText("(圖片缺失)", 0, cw * 0.15);
+                    }
+                    this.ctx.restore();
+                }
+
+                // Draw active clouds
+                this.clouds.forEach(c => {
+                    if (c.popping >= 1) return;
+
+                    this.ctx.save();
+                    this.ctx.translate(c.x, c.y);
+                    
+                    if (!c.active) {
+                        // Popping animation (expand and fade)
+                        const scale = 1 + c.popping * 0.5;
+                        this.ctx.scale(scale, scale);
+                        this.ctx.globalAlpha = 1 - c.popping;
+                    }
+
+                    // Cloud Drop Shadow
+                    this.ctx.shadowColor = 'rgba(0,0,0,0.15)';
+                    this.ctx.shadowBlur = 10;
+                    this.ctx.shadowOffsetY = 5;
+
+                    this.ctx.fillStyle = '#ffffff';
+                    this.drawCloudShape(this.ctx, 0, 0, c.radius);
+                    
+                    this.ctx.shadowColor = 'transparent';
+                    
+                    // Text
+                    this.ctx.fillStyle = '#1e3a8a'; // blue-900
+                    this.ctx.font = `900 ${c.radius * 0.6}px 'Noto Sans TC'`;
+                    this.ctx.textAlign = 'center';
+                    this.ctx.textBaseline = 'middle';
+                    this.ctx.fillText(c.word, 0, 0);
+
+                    // Draw Red Cross if mismatched word was clicked
+                    if (c.showCross > 0) {
+                        this.ctx.save();
+                        this.ctx.globalAlpha = Math.max(0, c.showCross);
+                        this.ctx.strokeStyle = '#ef4444'; // red-500
+                        this.ctx.lineWidth = c.radius * 0.25;
+                        this.ctx.lineCap = 'round';
+                        this.ctx.beginPath();
+                        const s = c.radius * 0.4;
+                        this.ctx.moveTo(-s, -s);
+                        this.ctx.lineTo(s, s);
+                        this.ctx.moveTo(s, -s);
+                        this.ctx.lineTo(-s, s);
+                        this.ctx.stroke();
+                        this.ctx.restore();
+                    }
+
+                    this.ctx.restore();
+                });
+            },
+
+            drawCloudShape(ctx, x, y, size) {
+                ctx.beginPath();
+                ctx.arc(x, y, size * 0.5, 0, Math.PI * 2);
+                ctx.arc(x - size * 0.4, y + size * 0.1, size * 0.4, 0, Math.PI * 2);
+                ctx.arc(x + size * 0.4, y + size * 0.1, size * 0.4, 0, Math.PI * 2);
+                ctx.arc(x - size * 0.2, y - size * 0.2, size * 0.35, 0, Math.PI * 2);
+                ctx.arc(x + size * 0.2, y - size * 0.2, size * 0.35, 0, Math.PI * 2);
+                ctx.fill();
+            },
+
+            handleInput(e) {
+                if (!this.running) return;
+                
+                // Get correct coordinate
+                const rect = this.canvas.getBoundingClientRect();
+                const scaleX = this.canvas.width / rect.width;
+                const scaleY = this.canvas.height / rect.height;
+                const tx = (e.clientX - rect.left) * scaleX;
+                const ty = (e.clientY - rect.top) * scaleY;
+
+                // Check collision (reverse order to hit top z-index first)
+                for (let i = this.clouds.length - 1; i >= 0; i--) {
+                    const c = this.clouds[i];
+                    if (c.active) {
+                        // simple distance check (approximate bounding circle)
+                        const dx = tx - c.x;
+                        const dy = ty - c.y;
+                        if (dx*dx + dy*dy < (c.radius * 1.2)*(c.radius * 1.2)) {
+                            this.cloudClicked(c);
+                            break; // hit only one
+                        }
+                    }
+                }
+            },
+
+            cloudClicked(cloud) {
+                if (cloud.isCorrect) {
+                    app.playSound('correct');
+                    cloud.active = false; // start popping
+                    this.score++;
+                    document.getElementById('m1-score').innerText = this.score;
+                    
+                    // Remove other clouds
+                    this.clouds.forEach(c => c.active = false);
+
+                    setTimeout(() => {
+                        this.nextRound();
+                    }, 800);
+                } else {
+                    app.playSound('wrong');
+                    // Show cross and shake effect or speed up
+                    cloud.showCross = 1.0;
+                    cloud.vx *= -1.5;
+                    cloud.vy = (Math.random() - 0.5) * 10;
+                }
+            }
+        };
+
+        // --- Mode 2 Logic (DOM Matching Game) ---
+        const mode2 = {
+            score: 0,
+            selectedPicCard: null,
+            selectedWordCard: null,
+            isProcessing: false,
+            
+            start() {
+                this.score = 0;
+                document.getElementById('m2-score').innerText = this.score;
+                this.selectedPicCard = null;
+                this.selectedWordCard = null;
+                this.isProcessing = false;
+                
+                const picGrid = document.getElementById('m2-pic-grid');
+                const wordGrid = document.getElementById('m2-word-grid');
+                picGrid.innerHTML = '';
+                wordGrid.innerHTML = '';
+
+                // Create shuffled arrays
+                const words = [...app.currentWords].sort(() => Math.random() - 0.5);
+                const pics = [...app.currentWords].sort(() => Math.random() - 0.5);
+
+                // Build Pic Cards
+                pics.forEach((word, index) => {
+                    const card = this.createCard('pic', word, index);
+                    picGrid.appendChild(card);
+                });
+
+                // Build Word Cards
+                words.forEach((word, index) => {
+                    const card = this.createCard('word', word, index);
+                    wordGrid.appendChild(card);
+                });
+            },
+
+            createCard(type, word, index) {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'w-full aspect-square md:aspect-[4/3]'; // responsive aspect ratio
+
+                const card = document.createElement('div');
+                card.className = 'match-card w-full h-full';
+                card.dataset.type = type;
+                card.dataset.word = word;
+                
+                const inner = document.createElement('div');
+                inner.className = 'match-card-inner';
+                
+                const front = document.createElement('div');
+                front.className = 'match-card-front';
+
+                if (type === 'pic') {
+                    const imgObj = app.imageCache[`${app.currentListId}_${word}`];
+                    if (imgObj) {
+                        const img = document.createElement('img');
+                        img.src = imgObj.src;
+                        img.draggable = false;
+                        front.appendChild(img);
+                    } else {
+                        // Fallback for missing image
+                        const span = document.createElement('span');
+                        span.className = 'text-3xl sm:text-4xl md:text-5xl font-black text-amber-700 opacity-30';
+                        span.innerText = word;
+                        front.appendChild(span);
+                        front.classList.add('bg-amber-100');
+                    }
+                } else {
+                    const span = document.createElement('span');
+                    span.className = 'text-4xl sm:text-5xl md:text-6xl font-black text-blue-800';
+                    span.innerText = word;
+                    front.appendChild(span);
+                }
+
+                inner.appendChild(front);
+                card.appendChild(inner);
+                wrapper.appendChild(card);
+
+                // Event listener
+                card.addEventListener('click', () => this.handleCardClick(card));
+
+                return wrapper;
+            },
+
+            handleCardClick(card) {
+                if (this.isProcessing || card.classList.contains('matched')) return;
+
+                const type = card.dataset.type;
+
+                // Deselect if clicking the same card
+                if (card === this.selectedPicCard) {
+                    this.selectedPicCard.classList.remove('selected');
+                    this.selectedPicCard = null;
+                    app.playSound('click');
+                    return;
+                }
+                if (card === this.selectedWordCard) {
+                    this.selectedWordCard.classList.remove('selected');
+                    this.selectedWordCard = null;
+                    app.playSound('click');
+                    return;
+                }
+
+                app.playSound('click');
+                card.classList.add('selected');
+
+                if (type === 'pic') {
+                    if (this.selectedPicCard) this.selectedPicCard.classList.remove('selected');
+                    this.selectedPicCard = card;
+                } else {
+                    if (this.selectedWordCard) this.selectedWordCard.classList.remove('selected');
+                    this.selectedWordCard = card;
+                }
+
+                // Check for match
+                if (this.selectedPicCard && this.selectedWordCard) {
+                    this.checkMatch();
+                }
+            },
+
+            checkMatch() {
+                this.isProcessing = true;
+                const picWord = this.selectedPicCard.dataset.word;
+                const wordWord = this.selectedWordCard.dataset.word;
+
+                if (picWord === wordWord) {
+                    // Match!
+                    setTimeout(() => {
+                        app.playSound('correct');
+                        this.selectedPicCard.classList.remove('selected');
+                        this.selectedWordCard.classList.remove('selected');
+                        this.selectedPicCard.classList.add('matched');
+                        this.selectedWordCard.classList.add('matched');
+                        
+                        this.score++;
+                        document.getElementById('m2-score').innerText = this.score;
+
+                        this.resetSelection();
+
+                        if (this.score === 8) {
+                            setTimeout(() => {
+                                app.showWinScreen();
+                            }, 800);
+                        }
+                    }, 300);
+                } else {
+                    // Wrong!
+                    setTimeout(() => {
+                        app.playSound('wrong');
+                        // Add shake animation class
+                        this.selectedPicCard.classList.remove('selected');
+                        this.selectedWordCard.classList.remove('selected');
+                        this.resetSelection();
+                    }, 600);
+                }
+            },
+
+            resetSelection() {
+                this.selectedPicCard = null;
+                this.selectedWordCard = null;
+                this.isProcessing = false;
+            }
+        };
+
+        // Initialize application on load
+        window.addEventListener('DOMContentLoaded', () => {
+            app.init();
+        });
+
+    </script>
+</body>
+</html>
