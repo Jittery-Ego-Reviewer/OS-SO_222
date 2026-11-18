@@ -202,36 +202,36 @@
     <!-- Mode 2: Matching Area -->
     <div id="mode2-container" class="hidden absolute inset-0 z-20 bg-amber-50 flex flex-col">
         <!-- Top Bar -->
-        <div class="w-full p-4 flex justify-between items-center bg-white/50 backdrop-blur shadow-sm z-30 shrink-0">
-            <button onclick="app.showScreen('mode-screen')" class="text-amber-700 hover:text-amber-900 text-2xl bg-white w-12 h-12 rounded-full shadow flex justify-center items-center">
+        <div class="w-full p-2 sm:p-4 flex justify-between items-center bg-white/50 backdrop-blur shadow-sm z-30 shrink-0">
+            <button onclick="app.showScreen('mode-screen')" class="text-amber-700 hover:text-amber-900 text-xl sm:text-2xl bg-white w-10 h-10 sm:w-12 sm:h-12 rounded-full shadow flex justify-center items-center">
                 <i class="fas fa-arrow-left"></i>
             </button>
-            <h2 class="text-2xl font-bold text-amber-800 title-font">形義配對</h2>
-            <div class="bg-amber-100 px-6 py-2 rounded-full shadow-inner font-bold text-amber-800 text-xl border border-amber-200">
+            <h2 class="text-xl sm:text-2xl font-bold text-amber-800 title-font">形義配對</h2>
+            <div class="bg-amber-100 px-4 py-1 sm:px-6 sm:py-2 rounded-full shadow-inner font-bold text-amber-800 text-lg sm:text-xl border border-amber-200">
                 進度: <span id="m2-score">0</span> / 8
             </div>
         </div>
         
         <!-- Game Area -->
-        <div id="mode2-scroll-area" class="flex-grow w-full flex flex-col items-center justify-start sm:justify-center p-4">
+        <div id="mode2-scroll-area" class="flex-grow w-full flex flex-col items-center justify-start p-1 sm:p-2">
             
-            <div class="w-full max-w-5xl flex flex-col gap-8">
-                <!-- Picture Deck (2x4 Grid) -->
+            <div class="w-full max-w-4xl flex flex-col gap-2">
+                <!-- Word Deck (2x4 Grid) - Moved to top -->
                 <div class="w-full">
-                    <div class="bg-amber-200/50 rounded-t-xl px-4 py-2 border-b-2 border-amber-300">
-                        <h3 class="text-lg font-bold text-amber-800"><i class="fas fa-image mr-2"></i> 圖片區 (選一張)</h3>
+                    <div class="bg-blue-200/50 rounded-t-xl px-4 py-1 border-b-2 border-blue-300">
+                        <h3 class="text-sm sm:text-base font-bold text-blue-800"><i class="fas fa-font mr-2"></i> 文字區 (請先選一個詞語)</h3>
                     </div>
-                    <div id="m2-pic-grid" class="grid grid-cols-4 grid-rows-2 gap-2 sm:gap-4 p-4 bg-white rounded-b-xl shadow-md border-x border-b border-amber-100 min-h-[200px]">
+                    <div id="m2-word-grid" class="grid grid-cols-4 grid-rows-2 gap-1 sm:gap-2 p-1 sm:p-2 bg-white rounded-b-xl shadow-md border-x border-b border-blue-100">
                         <!-- Cards injected via JS -->
                     </div>
                 </div>
 
-                <!-- Word Deck (2x4 Grid) -->
+                <!-- Picture Deck (2x4 Grid) - Moved below -->
                 <div class="w-full">
-                    <div class="bg-blue-200/50 rounded-t-xl px-4 py-2 border-b-2 border-blue-300">
-                        <h3 class="text-lg font-bold text-blue-800"><i class="fas fa-font mr-2"></i> 文字區 (選一張)</h3>
+                    <div class="bg-amber-200/50 rounded-t-xl px-4 py-1 border-b-2 border-amber-300">
+                        <h3 class="text-sm sm:text-base font-bold text-amber-800"><i class="fas fa-image mr-2"></i> 圖片區 (然後選配對圖片)</h3>
                     </div>
-                    <div id="m2-word-grid" class="grid grid-cols-4 grid-rows-2 gap-2 sm:gap-4 p-4 bg-white rounded-b-xl shadow-md border-x border-b border-blue-100 min-h-[200px]">
+                    <div id="m2-pic-grid" class="grid grid-cols-4 grid-rows-2 gap-1 sm:gap-2 p-1 sm:p-2 bg-white rounded-b-xl shadow-md border-x border-b border-amber-100">
                         <!-- Cards injected via JS -->
                     </div>
                 </div>
@@ -723,7 +723,7 @@
 
             createCard(type, word, index) {
                 const wrapper = document.createElement('div');
-                wrapper.className = 'w-full aspect-square md:aspect-[4/3]'; // responsive aspect ratio
+                wrapper.className = 'w-full aspect-[4/3] max-h-[18vh] mx-auto'; // Adjusted aspect ratio to be less flat
 
                 const card = document.createElement('div');
                 card.className = 'match-card w-full h-full';
@@ -746,14 +746,14 @@
                     } else {
                         // Fallback for missing image
                         const span = document.createElement('span');
-                        span.className = 'text-3xl sm:text-4xl md:text-5xl font-black text-amber-700 opacity-30';
+                        span.className = 'text-lg sm:text-xl md:text-2xl font-black text-amber-700 opacity-30';
                         span.innerText = word;
                         front.appendChild(span);
                         front.classList.add('bg-amber-100');
                     }
                 } else {
                     const span = document.createElement('span');
-                    span.className = 'text-4xl sm:text-5xl md:text-6xl font-black text-blue-800';
+                    span.className = 'text-lg sm:text-xl md:text-2xl font-black text-blue-800';
                     span.innerText = word;
                     front.appendChild(span);
                 }
@@ -772,6 +772,13 @@
                 if (this.isProcessing || card.classList.contains('matched')) return;
 
                 const type = card.dataset.type;
+
+                // Enforce choosing a word first
+                if (type === 'pic' && !this.selectedWordCard) {
+                    app.playSound('wrong'); // Play sound to indicate invalid action
+                    // Optional: add a quick shake effect to the word container to draw attention
+                    return;
+                }
 
                 // Deselect if clicking the same card
                 if (card === this.selectedPicCard) {
