@@ -325,10 +325,16 @@
                 document.getElementById(screenId).classList.remove('hidden');
             },
 
-            selectList(listId) {
+            async selectList(listId) {
                 this.currentListId = listId;
                 this.currentWords = [...wordLists[listId]];
-                this.preloadImages(listId, this.currentWords);
+                
+                // Change cursor to indicate loading
+                document.body.style.cursor = 'wait';
+                
+                await this.preloadImages(listId, this.currentWords);
+                
+                document.body.style.cursor = 'default';
                 this.showScreen('mode-screen');
             },
 
@@ -390,13 +396,22 @@
                     container.appendChild(conf);
                 }
             },
+
+            // Fisher-Yates Shuffle for better randomization
+            shuffleArray(array) {
+                let currentIndex = array.length, randomIndex;
+                while (currentIndex != 0) {
+                    randomIndex = Math.floor(Math.random() * currentIndex);
+                    currentIndex--;
+                    [array[currentIndex], array[randomIndex]] = [array[randomIndex], array[currentIndex]];
+                }
+                return array;
+            },
             
             // Helper to get random distractors from current list
             getDistractors(correctWord, count=2) {
                 const others = this.currentWords.filter(w => w !== correctWord);
-                // Shuffle others
-                others.sort(() => Math.random() - 0.5);
-                return others.slice(0, count);
+                return this.shuffleArray(others).slice(0, count);
             }
         };
 
@@ -420,8 +435,8 @@
                 document.getElementById('m1-score').innerText = this.score;
                 this.resize();
                 
-                // Setup queue
-                this.targetQueue = [...app.currentWords].sort(() => Math.random() - 0.5);
+                // Setup queue with better shuffle
+                this.targetQueue = app.shuffleArray([...app.currentWords]);
                 
                 // Add event listeners (remove old ones first to prevent duplicates)
                 this.canvas.removeEventListener('pointerdown', this.handleInput);
@@ -461,7 +476,7 @@
                 // Generate clouds
                 this.clouds = [];
                 const distractors = app.getDistractors(word, 2);
-                const cloudWords = [word, ...distractors].sort(() => Math.random() - 0.5);
+                const cloudWords = app.shuffleArray([word, ...distractors]);
 
                 // Create cloud objects spread out
                 cloudWords.forEach((cw, idx) => {
@@ -704,9 +719,9 @@
                 picGrid.innerHTML = '';
                 wordGrid.innerHTML = '';
 
-                // Create shuffled arrays
-                const words = [...app.currentWords].sort(() => Math.random() - 0.5);
-                const pics = [...app.currentWords].sort(() => Math.random() - 0.5);
+                // Create shuffled arrays securely
+                const words = app.shuffleArray([...app.currentWords]);
+                const pics = app.shuffleArray([...app.currentWords]);
 
                 // Build Pic Cards
                 pics.forEach((word, index) => {
@@ -728,7 +743,7 @@
                 const card = document.createElement('div');
                 card.className = 'match-card w-full h-full';
                 card.dataset.type = type;
-                card.dataset.word = word;
+                card.dataset.word = word.trim(); // Ensure exact matching without spaces
                 
                 const inner = document.createElement('div');
                 inner.className = 'match-card-inner';
@@ -741,20 +756,22 @@
                     if (imgObj) {
                         const img = document.createElement('img');
                         img.src = imgObj.src;
+                        img.alt = word.trim();
                         img.draggable = false;
+                        img.title = "圖片"; // Reassure it is purely the image
                         front.appendChild(img);
                     } else {
                         // Fallback for missing image
                         const span = document.createElement('span');
                         span.className = 'text-lg sm:text-xl md:text-2xl font-black text-amber-700 opacity-30';
-                        span.innerText = word;
+                        span.innerText = word.trim();
                         front.appendChild(span);
                         front.classList.add('bg-amber-100');
                     }
                 } else {
                     const span = document.createElement('span');
                     span.className = 'text-lg sm:text-xl md:text-2xl font-black text-blue-800';
-                    span.innerText = word;
+                    span.innerText = word.trim();
                     front.appendChild(span);
                 }
 
