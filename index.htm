@@ -3,26 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>字詞小特工</title>
+    <title>字詞對對碰</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Tone.js for Sound Effects -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
     <!-- Font Awesome for Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Google Fonts for Chinese -->
-    <link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Noto+Sans+TC:wght@400;700;900&display=swap" rel="stylesheet">
     
     <style>
         body {
-            font-family: 'Noto Sans TC', sans-serif;
-            touch-action: none; /* Prevent pinch zoom and scrolling on game area */
+            font-family: 'BiauKai', 'DFKai-SB', 'KaiTi', 'STKaiti', serif;
             background-color: #e0f2fe;
             overflow: hidden;
         }
         
         .title-font {
-            font-family: 'Ma Shan Zheng', cursive;
+            font-family: 'BiauKai', 'DFKai-SB', 'KaiTi', 'STKaiti', serif;
         }
 
         /* Mode 2 Match Card Styles */
@@ -76,8 +73,8 @@
         }
         
         .match-card-front img {
-            max-width: 90%;
-            max-height: 90%;
+            width: 96%;
+            height: 96%;
             object-fit: contain;
             border-radius: 0.5rem;
         }
@@ -107,12 +104,12 @@
         /* Custom Scrollbar for mode 2 if needed on small devices */
         #mode2-scroll-area {
             overflow-y: auto;
-            max-height: calc(100vh - 120px);
-            padding-bottom: 20px;
+            -webkit-overflow-scrolling: touch;
+            padding-bottom: 40px;
         }
     </style>
 </head>
-<body class="w-full h-screen relative select-none">
+<body class="w-full h-[100dvh] relative select-none">
 
     <!-- Audio Context Unlock Screen -->
     <div id="start-screen" class="absolute inset-0 z-50 flex flex-col items-center justify-center bg-sky-400 bg-opacity-95 text-white transition-opacity duration-500">
@@ -580,11 +577,11 @@
                         this.ctx.roundRect(-cw/2+10, -ch/2+10, cw-20, ch-20, 15);
                         this.ctx.fill();
                         this.ctx.fillStyle = '#b45309';
-                        this.ctx.font = `bold ${cw * 0.2}px 'Noto Sans TC'`;
+                        this.ctx.font = `bold ${cw * 0.2}px 'BiauKai', 'DFKai-SB', serif`;
                         this.ctx.textAlign = 'center';
                         this.ctx.textBaseline = 'middle';
                         this.ctx.fillText(this.currentTarget.word, 0, 0);
-                        this.ctx.font = `bold ${cw * 0.08}px 'Noto Sans TC'`;
+                        this.ctx.font = `bold ${cw * 0.08}px 'BiauKai', 'DFKai-SB', serif`;
                         this.ctx.fillText("(圖片缺失)", 0, cw * 0.15);
                     }
                     this.ctx.restore();
@@ -616,7 +613,7 @@
                     
                     // Text
                     this.ctx.fillStyle = '#1e3a8a'; // blue-900
-                    this.ctx.font = `900 ${c.radius * 0.6}px 'Noto Sans TC'`;
+                    this.ctx.font = `900 ${c.radius * 0.6}px 'BiauKai', 'DFKai-SB', serif`;
                     this.ctx.textAlign = 'center';
                     this.ctx.textBaseline = 'middle';
                     this.ctx.fillText(c.word, 0, 0);
@@ -738,7 +735,7 @@
 
             createCard(type, word, index) {
                 const wrapper = document.createElement('div');
-                wrapper.className = 'w-full aspect-[4/3] max-h-[18vh] mx-auto'; // Adjusted aspect ratio to be less flat
+                wrapper.className = 'w-full aspect-square sm:aspect-[4/3] mx-auto'; // Made more square to give images maximum space
 
                 const card = document.createElement('div');
                 card.className = 'match-card w-full h-full';
