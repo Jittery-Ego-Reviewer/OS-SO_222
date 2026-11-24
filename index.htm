@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>字詞對對碰</title>
+    <title>字詞小特工</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Tone.js for Sound Effects -->
@@ -405,10 +405,28 @@
                 return array;
             },
             
-            // Helper to get random distractors from current list
-            getDistractors(correctWord, count=2) {
-                const others = this.currentWords.filter(w => w !== correctWord);
-                return this.shuffleArray(others).slice(0, count);
+            // Helper to get distractors: always includes the orthographically related pair + random distractor(s)
+            getDistractors(correctWord, count = 2) {
+                const originalList = wordLists[this.currentListId] || this.currentWords;
+                const wordIndex = originalList.indexOf(correctWord);
+                const distractors = [];
+
+                // Words in each list are arranged in orthographic pairs: (0,1), (2,3), (4,5), (6,7)
+                if (wordIndex !== -1 && count >= 1) {
+                    const pairIndex = wordIndex % 2 === 0 ? wordIndex + 1 : wordIndex - 1;
+                    if (pairIndex >= 0 && pairIndex < originalList.length) {
+                        distractors.push(originalList[pairIndex]);
+                    }
+                }
+
+                // Fill the remaining distractor slots randomly from the rest of the list
+                const remainingWords = originalList.filter(
+                    w => w !== correctWord && !distractors.includes(w)
+                );
+                const needed = Math.max(0, count - distractors.length);
+                const randomDistractors = this.shuffleArray([...remainingWords]).slice(0, needed);
+
+                return [...distractors, ...randomDistractors];
             }
         };
 
